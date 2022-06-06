@@ -24,7 +24,7 @@ R-Pubs link:
 
 ## Part 2: Unsupervised Learning
 
-R-Pubs [link](https://rpubs.com/Geoffrey_Chege/911178).
+R-Pubs link [here](https://rpubs.com/Geoffrey_Chege/911178).
 
 ### Description
 * Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia.
