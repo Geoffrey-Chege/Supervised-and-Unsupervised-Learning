@@ -2,7 +2,7 @@
 
 ## Part 1: Supervised Learning
 
-R-Pubs link:
+R-Pubs link [here](https://rpubs.com/Geoffrey_Chege/911197).
 
 ### Description        
 * A Kenyan entrepreneur has created an online cryptography course and would want to advertise it on her blog.
