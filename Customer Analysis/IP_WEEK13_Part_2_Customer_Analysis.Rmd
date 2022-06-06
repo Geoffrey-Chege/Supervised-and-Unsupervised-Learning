@@ -1,0 +1,711 @@
+---
+title: "R Project - Customer Behaviour Analysis"
+author: "Geoffrey Chege"
+date: '2022-06-04'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Problem Definition
+
+- Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+# 2. Steps Taken
+
+- Problem Definition
+- Data Sourcing
+- Check the Data
+- Perform Data Cleaning
+- Perform Exploratory Data Analysis:
+  - Univariate
+  - Bivariate
+  - Multivariate
+- Implement the Solution
+- Challenge the Solution
+- Follow up Questions
+
+# 3. Data Sourcing
+
+- The dataset for this Independent project can be found here http://bit.ly/EcommerceCustomersDataset
+
+- The dataset consists of 10 numerical and 8 categorical attributes. The 'Revenue' attribute can be used as the class label.
+- "Administrative", "Administrative Duration", "Informational", "Informational Duration", "Product Related" and "Product Related Duration" represents the number of different types of pages visited by the visitor in that session and total time spent in each of these page categories. The values of these features are derived from the URL information of the pages visited by the user and updated in real-time when a user takes an action, e.g. moving from one page to another.
+- The "Bounce Rate", "Exit Rate" and "Page Value" features represent the metrics measured by "Google Analytics" for each page in the e-commerce site.
+- The value of the "Bounce Rate" feature for a web page refers to the percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
+- The value of the "Exit Rate" feature for a specific web page is calculated as for all pageviews to the page, the percentage that was the last in the session.
+- The "Page Value" feature represents the average value for a web page that a user visited before completing an e-commerce transaction.
+- The "Special Day" feature indicates the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. The value of this attribute is determined by considering the dynamics of e-commerce such as the duration between the order date and delivery date. For example, for Valentina’s day, this value takes a nonzero value between February 2 and February 12, zero before and after this date unless it is close to another special day, and its maximum value of 1 on February 8.
+- The dataset also includes the operating system, browser, region, traffic type, visitor type as returning or new visitor, a Boolean value indicating whether the date of the visit is weekend, and month of the year.
+
+# 4. Installing and loading Necessary Packages
+```{r eval=FALSE, include=FALSE}
+
+install.packages("DataExplorer")
+install.packages("Hmisc")
+install.packages("pastecs")
+install.packages("iterators")
+install.packages("caret")
+install.packages("caretEnsemble")
+install.packages("ggplot2")
+install.packages("e1071")
+install.packages("factoextra")
+install.packages("randomForest")
+install.packages("ggcorrplot")
+install.packages('ranger')
+install.packages("Rtsne")
+install.packages('caTools')
+install.packages('rpart')
+install.packages('rpart.plot')
+install.packages('psych')
+install.packages("devtools")
+```
+
+```{r include=FALSE}
+
+library(tidyr)
+library(magrittr)
+library(warn = -1)
+library(RColorBrewer)
+library(ggplot2)
+library(lattice)
+library(corrplot)
+library(DataExplorer)
+library(Hmisc)
+library(pastecs)
+library(psych)
+library(factoextra)
+library(Rtsne)
+library(caret)
+library("dbscan")
+library("rpart.plot")
+
+```
+
+# 5. Check the Data
+
+```{r df}
+
+df <- read.csv("C:/Users/user/Downloads/online_shoppers_intention.csv") # loading the file
+head(df) # displaying the first 5 elements of the data
+
+```
+
+
+# 6. Data Cleaning
+
+## 6.1 Missing Values
+
+```{r}
+
+# checking for missing values
+
+colSums(is.na(df))
+
+```
+
+- There are missing values in 8 of the columns. Each column has 14 missing values.
+- I will remove them before I continue my analysis.
+
+```{r}
+
+# dropping null values
+
+df <- na.omit(df)
+
+```
+
+
+- Confirming the changes.
+
+```{r}
+
+# confirming there are no null values
+
+colSums(is.na(df))
+
+```
+
+## 6.2 Checking for duplicates
+
+```{r duplicates}
+duplicates <- df[duplicated(df),] # creating a table and storing the duplicates in it
+head(duplicates) # displaying the table
+```
+
+- I will drop the duplicates.
+
+```{r}
+# eliminating duplicates
+df <- df[!duplicated(df), ]
+```
+
+- Confirming that there are no more duplicates.
+
+```{r}
+### Dataset structure
+str(df)
+```
+
+## 6.3 Changing columns to factors
+
+```{r}
+# changing character and logic columns to factors
+
+df$Month <- factor(df$Month)
+df$VisitorType <- factor(df$VisitorType)
+df$Weekend <- factor(df$Weekend)
+df$Revenue <- factor(df$Revenue)
+
+```
+
+- Month column is now a factor with 10 levels.
+- VisitorType column is now a factor with 3 levels.
+- Weekend column is now a factor with 2 levels.
+- Revenue column is now a factor with 2 levels.
+
+
+```{r}
+### Dataset structure
+str(df)
+```
+
+# 7. Exploratory Data Analysis
+
+### A function to determine the mode
+
+```{r mode}
+mode <- function(v){
+  uniq <- unique(v)
+  uniq[which.max(tabulate(match(v,uniq)))]
+}
+```
+
+### Summary statistics of the columns
+
+```{r}
+
+summary(df)
+
+```
+
+###  Description of Columns
+
+```{r}
+
+describe(df)
+
+```
+
+## Univariate Analysis
+
+### Administrative Column
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 2.34
+  - Median: 1
+  - Skewness: 1.95
+  - Kurtosis: 4.63
+
+- The mode is:
+
+```{r}
+mode(df$Administrative)
+```
+
+### Informational Column
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 0.51
+  - Median: 0
+  - Skewness: 4.01
+  - Kurtosis: 26.64
+
+- The mode is:
+
+```{r}
+mode(df$Informational)
+```
+
+### ProductRelated Column
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 32.06
+  - Median: 18
+  - Skewness: 4.33
+  - Kurtosis: 31.04
+
+- The mode is:
+
+```{r}
+mode(df$ProductRelated)
+```
+
+### BounceRates
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 0.02
+  - Median: 0.00
+  - Skewness: 3.15
+  - Kurtosis: 9.25
+
+- The mode is:
+
+```{r}
+mode(df$BounceRates)
+```
+
+### ExitRates
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 0.04
+  - Median: 0.03
+  - Skewness: 2.23
+  - Kurtosis: 4.62
+
+- The mode is:
+
+```{r}
+mode(df$ExitRates)
+```
+
+### PageValues
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 5.95
+  - Median: 0
+  - Skewness: 6.35
+  - Kurtosis: 64.93
+ 
+- The mode is:
+
+```{r}
+mode(df$PageValues)
+```
+
+### SpecialDay
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 0.06
+  - Median: 0
+  - Skewness: 3.28
+  - Kurtosis: 9.78
+ 
+- The mode is:
+
+```{r}
+mode(df$SpecialDay)
+```
+
+### Month
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 6.17
+  - Median: 7
+  - Skewness: -0.83
+  - Kurtosis: -0.37
+ 
+- The mode is:
+
+```{r}
+mode(df$Month)
+```
+
+### OperatingSystems
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 2.12
+  - Median: 2
+  - Skewness: 2.03
+  - Kurtosis: 10.27
+ 
+- The mode is:
+
+```{r}
+mode(df$OperatingSystems)
+```
+
+### Browser
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 2.36
+  - Median: 2
+  - Skewness: 3.22
+  - Kurtosis: 12.53
+ 
+- The mode is:
+
+```{r}
+mode(df$Browser)
+```
+
+### Region
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 3.15
+  - Median: 3
+  - Skewness: 0.98
+  - Kurtosis: -0.16
+ 
+- The mode is:
+
+```{r}
+mode(df$Region)
+```
+
+### TrafficType
+
+- From the summary and description, we can gather the following about the administrative column:
+  - Mean: 4.07
+  - Median: 2
+  - Skewness: 1.96
+  - Kurtosis: 3.47
+ 
+- The mode is:
+
+```{r}
+mode(df$TrafficType)
+```
+
+### Distributions
+
+```{r}
+plot_histogram(df)
+```
+
+
+
+```{r}
+plot_bar(df)
+```
+
+## Bivariate Analysis
+
+- Examining how different variables affect the target variable
+
+```{r}
+# Administrative sites and Revenue
+ggplot(df, aes(Administrative, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(Administrative_Duration, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(Informational, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(Informational_Duration, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(ProductRelated, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(SpecialDay, color=Revenue)) +
+  geom_freqpoly()
+```
+
+```{r}
+ggplot(df, aes(PageValues, color=Revenue)) +
+  geom_freqpoly()
+```
+
+
+```{r}
+# Months vs GeneratingRevenue
+ggplot(df, aes(Month, color=Revenue, fill=Revenue)) +
+  geom_bar()
+```
+
+- May, March, and November are the months which generate significantly more revenue for the business.
+
+```{r}
+# Day type vs Generating Revenue
+ggplot(df, aes(Weekend, color=Revenue, fill=Revenue)) +
+  geom_bar(binwidth=1)
+```
+
+- Weekdays generate more Revenue than weekends.
+
+```{r}
+# Operating systems vs Generating Revenue
+ggplot(df, aes(OperatingSystems, color=Revenue, fill=Revenue)) +
+  geom_bar()
+```
+
+- Users of type 2 OS generated the most revenue for the site, while 1, and 3 followed.
+
+```{r}
+ggplot(df, aes(Region, fill=Revenue, color=Revenue)) +
+  geom_bar()
+```
+
+- Region 1 produced the most revenue out of all the others with region 5 producing the least.
+
+```{r}
+# Visitor type and revenue
+ggplot(df, aes(VisitorType, color=Revenue, fill=Revenue)) +
+  geom_bar(binwidth=2)
+```
+
+- Returning visitors generated more revenue than new ones
+
+```{r}
+# Bounce rates vs Revenue
+ggplot(df, aes(BounceRates, color=Revenue)) +
+  geom_freqpoly()
+```
+
+- A lot of sites had a high percentage of visitors just leaving without triggering any requests from our target website.
+
+- All the data profiling statistics will be organized into the report below
+
+```{r}
+create_report(df)
+```
+
+- The link for the report is here: "https://github.com/Geoffrey-Chege/Supervised-and-Unsupervised-Learning/blob/main/Customer%20Analysis/report.html"
+
+# 8. Implementing the Solution
+
+## K-Means Clustering
+
+- Step 1: One hot encoding of the factor variables.
+
+```{r}
+
+# # One hot encoding of the factor variables.
+
+dmy = dummyVars(" ~ .", data = df)
+
+df2 = data.frame(predict(dmy, newdata = df))
+
+```
+
+
+```{r}
+# Checking the data types of each attribute
+sapply(df2, class)
+```
+
+- Step 2: We are instructed to use Revenue as the class label, Hence we will remove it and store it in another variable.
+
+```{r}
+# Step 2
+# We are instructed to use Revenue as the class label,
+# Hence we will remove it and store it in another variable
+
+df2_copy <- df2[, -c(30:31)]
+df.class<- df[, "Revenue"]
+
+df2_copy_copy <- df2[, -c(30,31)]
+
+```
+
+
+```{r}
+# Previewing the copy dataset with dummies
+head(df2_copy)
+```
+
+- Step 3: Determining whether to Normalize or Scale the data.
+
+### Scaling:
+
+```{r}
+# This is important to ensure that no particular attribute, has more impact on clustering algorithm than others
+
+df2_scaled <- scale(df2_copy)
+```
+
+
+```{r}
+# After scaling the data lets see what we find in the output
+summary(df2_scaled)
+```
+
+- It is evident that there are some attributes still with large values compared to others.
+- Scaling makes the data changes the data to have a mean 0.
+- We will normalize the data and see if we get different results.
+
+### Normalizing:
+
+```{r}
+# Normalizing the a copy of the original data
+
+df2_norm <- as.data.frame(apply(df2_copy, 2, function(x) (x - min(x))/(max(x)-min(x))))
+```
+
+
+```{r}
+# summary of the normalized data.
+summary(df2_norm)
+```
+
+- Here, we have a maximum value of 1 and minimum value of 0s and mean of close to zero in all attributes.
+- We will use the NORMALIZED dataset for clustering.
+
+
+- Step 4: Determining optimal k value.
+
+```{r}
+# finding optimum k
+fviz_nbclust(df2_norm, kmeans, method="wss")
+```
+
+- 3 is the first elbow, so I will use it as my k value.
+
+- Step 5: Applying K-Means.
+
+```{r}
+# Applying K-Means  Clustering algorithm
+# Using 3 centroids as K=3
+
+result <- kmeans(df2_norm, 3)
+```
+
+
+
+```{r}
+# Previewing the number of records in each cluster
+
+result$size
+```
+
+
+
+```{r}
+# Viewing the cluster center datapoints by each attribute
+
+result$centers
+```
+
+
+```{r}
+# Plotting two variables to see how their data points
+# have been distributed in the cluster
+# Product Related, vs Product Related Duration
+
+plot(df2_norm[, 5:6], col = result$cluster)
+```
+
+
+
+```{r}
+# Product Related vs Product Related Duration
+
+plot(df2_norm[, 7:8], col = result$cluster)
+```
+
+
+
+```{R}
+# Verifying the results of clustering
+# ---
+# 
+par(mfrow = c(2,2), mar = c(5,4,2,2))
+
+# Plotting to see how Product Related vs Product Related Duration data points have been distributed in clusters
+plot(df2_norm[, 5:6], col = result$cluster)
+
+# Plotting to see how Product Related, vs Product Related Duration data points have been distributed 
+# originally as per "class" attribute in dataset
+# ---
+#
+plot(df2_norm[, 5:6], col = df.class)
+
+# Plotting to see how Product Related vs Product Related Duration data points have been distributed in clusters
+# ---
+# 
+plot(df2_norm[, 7:8], col = result$cluster)
+plot(df2_norm[, 7:8], col = df.class)
+```
+
+
+
+```{R}
+# Result of table shows that Cluster 1 corresponds to False, 
+# Cluster 2 corresponds to False and Cluster 3 to False.
+# ---
+# 
+table(result$cluster, df.class)
+```
+
+# 9. Challenging the solution
+
+## Hierachical clustering
+
+```{r}
+# We use R function hclust()
+# For hierarchical clustering
+
+# d will be the first argument in the hclust() dissimilairty matrix
+
+# First we use the dist() to compute the Euclidean distance btwn obs
+d <- dist(df2_norm, method = "euclidean")
+
+# We then apply hierarchical clustering using the Ward's method
+res.hc <- hclust(d, method = "ward.D2")
+
+# Lastly we plot the obtained dendrogram
+plot(res.hc, cex = 0.6, hang = -1)
+```
+
+## DBSCAN
+
+```{R}
+# Applying DBSCAN algorithm
+# ---
+# I want minimum 4 points with in a distance of eps(0.4)
+# 
+db<-dbscan(df2_norm,eps=0.4,MinPts = 4)
+
+
+```
+
+
+```{R}
+# Printing out the clustering results
+# ---
+# 
+print(db)
+
+
+```
+
+
+
+```{R}
+# We also plot our clusters as shown
+# ---
+# The dataset and cluster method of dbscan is used to plot the clusters.
+# 
+hullplot(df2_norm,db$cluster)
+
+
+```
+
+- The DBSCAN and Hierarchical Clustering approaches are difficult to interpret given the nature of the data.
+- K-Means is the easiest to understand.
+
+# 10. Conclusion
+
+- Most traffic and revenue was from region 1. During holidays, more regions visit the site and contribute significantly to the total revenue.
+- Traffic type 2 brought in the most visitors. Some of the traffic types did not bring in visitors for all the 10 months under analysis.They should be eliminated when considering advertisement or re evaluated to find out the problem.
+- Most of the revenue and visits was from return visitors. A good indicator of customer satisfaction.
+- Return customers are the main source of revenue.
+- Bounce rate is high especial for new customers.
